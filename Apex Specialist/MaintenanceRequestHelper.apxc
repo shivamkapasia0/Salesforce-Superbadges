@@ -1,0 +1,72 @@
+public with sharing class MaintenanceRequestHelper {
+    
+    public static void updateWorkOrders(Map<Id,Case> caseMap) {
+        List<Case> newCases = new List<Case>();
+        Map<Id, Integer> productMap = new Map<Id, Integer>(); 
+        
+        for (Product2 productObj : [select Id, Maintenance_Cycle__c from Product2 WHERE Maintenance_Cycle__c != NULL]) {
+            productMap.put(productObj.Id, Integer.valueOf(productObj.Maintenance_Cycle__c));               
+        }
+        
+        Map<Id,List<Equipment_Maintenance_Item__c>> emiCaseIdMap = new Map<Id,List<Equipment_Maintenance_Item__c>>();
+        for(Equipment_Maintenance_Item__c emiObj : [SELECT Id, Equipment__c  , Maintenance_Request__c FROM Equipment_Maintenance_Item__c WHERE Maintenance_Request__c IN: caseMap.KeySet()] ){
+            if(!emiCaseIdMap.ContainsKey(emiObj.Maintenance_Request__c)){
+                emiCaseIdMap.put(emiObj.Maintenance_Request__c, new List<Equipment_Maintenance_Item__c>{emiObj});
+            }else{
+                emiCaseIdMap.get(emiObj.Maintenance_Request__c).add(emiObj);
+            }
+        }
+        system.debug('emiCaseIdMap'+emiCaseIdMap);
+        List<Equipment_Maintenance_Item__c> newEmiList = new List<Equipment_Maintenance_Item__c>();
+        for(Case caseObj: caseMap.values()){
+            system.debug('newCase.Equipment__c'+caseObj.Equipment__c);
+            Case newCase = new Case();
+            newCase.Vehicle__c = caseObj.Vehicle__c;
+            newCase.Equipment__c = caseObj.Equipment__c;
+            newCase.ProductId = caseObj.ProductId;
+            newCase.Product__c = caseObj.Product__c;
+            newCase.Type = 'Routine Maintenance';
+            newCase.Subject = 'Routine Maintenance Request' ;
+            newCase.Date_Reported__c = Date.today();
+            newCase.Date_Due__c = (productMap.get(caseObj.Id) != null) ? (Date.today().addDays(Integer.valueOf(productMap.get(caseObj.Id)))) : (Date.today() + 15);
+                newCase.Status = 'New';
+            newCase.Product__c = caseObj.Product__c;
+            newCase.AccountId = caseObj.AccountId;
+            newCase.ContactId = caseObj.ContactId;
+            newCase.AssetId = caseObj.AssetId;
+            newCase.Origin = caseObj.Origin;
+            newCase.Reason = caseObj.Reason;
+            newCase.caseFromID__c = caseObj.id;
+            newCases.add(newCase);
+        }
+        
+        if(newCases.size() > 0){
+            insert newCases;
+            for(Case caseObj : newCases){
+                List<Equipment_Maintenance_Item__c> temp =  emiCaseIdMap.get(caseObj.caseFromID__c);
+                if(temp !=null){
+                    for(Equipment_Maintenance_Item__c row:temp){
+                        Equipment_Maintenance_Item__c newitem = new Equipment_Maintenance_Item__c();
+                        newitem.Equipment__c = row.Equipment__c;
+                        newitem.Maintenance_Request__c = caseObj.Id;
+                        
+                        newEmiList.add(newitem);
+                        
+                    }
+                }
+                
+            }
+            
+            
+        }
+        
+        if(newEmiList.size()>0){
+            insert newEmiList;
+        }
+    }
+    
+    
+    
+    
+    
+}
