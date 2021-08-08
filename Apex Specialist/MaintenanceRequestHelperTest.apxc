@@ -1,0 +1,64 @@
+@isTest
+public with sharing class MaintenanceRequestHelperTest {
+    
+    @isTest
+    public static void Test(){
+        Vehicle__c vehicle = new Vehicle__c(Name='Freebird'); 
+        INSERT vehicle; 
+        
+        // create a new product2/equipment 
+        Product2 equipment1 = new Product2(); 
+        equipment1.Name='Toilet Seat Cover'; 
+        equipment1.Cost__c = 100; 
+        equipment1.Current_Inventory__c = 1; 
+        equipment1.Lifespan_Months__c = 1; 
+        equipment1.Maintenance_Cycle__c = 30; 
+        equipment1.Warehouse_SKU__c = '#grubsareyummy'; 
+        equipment1.IsActive = true; 
+        equipment1.Replacement_Part__c = true; 
+        INSERT equipment1; 
+        
+        // create a new product2/equipment 
+        Product2 equipment2 = new Product2(); 
+        equipment2.Name='Motor'; 
+        equipment2.Cost__c = 100; 
+        equipment2.Current_Inventory__c = 1; 
+        equipment2.Lifespan_Months__c = 1; 
+        equipment2.Maintenance_Cycle__c = 15; 
+        equipment2.Warehouse_SKU__c = '#grubsareyummy'; 
+        equipment2.IsActive = true; 
+        equipment2.Replacement_Part__c = true; 
+        INSERT equipment2; 
+        
+        
+        // new case of type 'Routine Maintenance' -- WILL fire trigger 
+        Case maintenaceRequest = new Case(); 
+        maintenaceRequest.Subject = vehicle.Name; 
+        maintenaceRequest.Vehicle__c = vehicle.Id; 
+        maintenaceRequest.Status = 'Open'; 
+        maintenaceRequest.Type = 'Routine Maintenance'; 
+        maintenaceRequest.Date_Reported__c = System.today(); 
+        INSERT maintenaceRequest; 
+        
+        //These records will joint the Equipment1 and 2 with the maintenance request record. 
+        List<Equipment_Maintenance_Item__c> equipmentMaintenanceItems = new List<Equipment_Maintenance_Item__c>(); 
+        equipmentMaintenanceItems.add(new Equipment_Maintenance_Item__c(Equipment__c = equipment1.Id,Maintenance_Request__c = maintenaceRequest.Id)); 
+        equipmentMaintenanceItems.add(new Equipment_Maintenance_Item__c(Equipment__c = equipment2.Id,Maintenance_Request__c = maintenaceRequest.Id)); 
+        insert equipmentMaintenanceItems; 
+        
+        // update each case status 
+        maintenaceRequest.Status = 'Closed'; 
+        UPDATE maintenaceRequest; 
+        
+        // grab some values so we can compare after clean up 
+        List<Case> newMaintRequestCreated = [SELECT Id FROM Case WHERE Type = 'Routine Maintenance' AND Status != 'Closed' AND Vehicle__c = :vehicle.Id ]; 
+        List<Equipment_Maintenance_Item__c> equipMaintItems = new List<Equipment_Maintenance_Item__c>();
+        if(newMaintRequestCreated.size() > 0){
+            equipMaintItems = [SELECT Id,Equipment__c FROM Equipment_Maintenance_Item__c WHERE Maintenance_Request__c =:newMaintRequestCreated.get(0).Id ];
+            
+        }
+        
+        
+        System.assertEquals(2,equipMaintItems.size());
+    }
+}
